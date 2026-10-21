@@ -1,1 +1,1 @@
-{ "name": "fav", "version": "0.1.0", "description": "/fav toggles caveman and installed plugins (superpowers, ponytail, ...) on and off" }
+{ "name": "fav", "version": "0.1.0", "license": "MIT", "description": "/fav toggles caveman and installed plugins (superpowers, ponytail, ...) on and off" }

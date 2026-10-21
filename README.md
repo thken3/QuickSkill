@@ -32,3 +32,7 @@ claude plugin install fav --marketplace thken3/QuickSkill
 ```
 
 In the desktop app, where `/plugin` does not run: click + next to the prompt box, then Plugins, Add marketplace with `thken3/QuickSkill`, then Add plugin.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
