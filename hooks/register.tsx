@@ -1,5 +1,16 @@
 import type { EngineInterface, Register } from 'claude-code'
 
+// The hint's tail (the usagebar mod's meter, or any other mod's text) is drawn in this color.
+// Blue from the theme so it suits light and dark terminals. Swap for 'blue' or a hex like '#4f8ff7'.
+const COLOR = 'suggestion'
+
+// Cut the tail to the room left, at a " │ " so no meter is half shown.
+const fit = (text: string, room: number) => {
+  if (text.length <= room) return text
+  const cut = text.slice(0, room)
+  return cut.slice(0, Math.max(0, cut.lastIndexOf(' │ ')))
+}
+
 // caveman is not a plugin: it is a rule in ~/.claude/CLAUDE.md, filtered out of the prompt when off.
 const isCavemanOn = async ($: EngineInterface) => (await $.store.get('caveman')) !== false
 
@@ -75,8 +86,6 @@ export const register: Register = on => {
     return note ? { text, context: [note] } : { text }
   })
 
-  // Buttons on the footer line, after the engine's hint ("auto mode on ...").
-  // ponytail: the hint is redrawn as plain text, so its pills are not separately styled.
   on('ui.render', { component: 'Pane', requestId: MENU }, async ($, e) => {
     const { Box, Text, Button } = $.ui.resolve(e)
     const list = await rows($)
@@ -97,10 +106,14 @@ export const register: Register = on => {
     )
   })
 
+  // The footer line: the engine's hint ("auto mode on ..."), its tail (the usage meter), then the buttons.
+  // ponytail: the hint is redrawn as plain text, so its pills are not separately styled.
+  // ponytail: a tail added by a mod that runs beneath this one is not seen; fine while usagebar runs above.
   on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
     const { Box, Text, Button } = $.ui.resolve(e)
     const hidden = await hiddenNames($)
     const list = (await rows($)).filter(([name]) => !hidden.includes(name))
+    const usage = e.props.tail ?? ''
     if (list.length === 0) return next(e)
     const press = (name: string, enabled: boolean) => async () => {
       optimistic.set(name, !enabled)
@@ -112,12 +125,24 @@ export const register: Register = on => {
       $.ui.invalidate('ui.render')
     }
 
+    const buttons = list.map(([name, enabled]) => (
+      <Button key={name} plain dimColor={!enabled} label={`${enabled ? '●' : '○'} ${name} `} onPress={press(name, enabled)} />
+    ))
+
+    // Claude Code draws its mode label ("⏵⏵ auto mode on") left of this tree; reserve its width.
+    // ponytail: fixed 20-column guess for that label; read it from the engine if it ever says.
+    const columns = (e.viewport?.columns ?? 80) - 20
+    const buttonsWidth = list.reduce((n, [name]) => n + name.length + 3, 0)
+    // Always one row (the footer has no room for two). Drop the hint first, then meters from the end.
+    const room = columns - buttonsWidth
+    const isHintShown = e.props.hint.length + 2 + (usage ? usage.length + 2 : 0) <= room
+    const shown = fit(usage, room - (isHintShown ? e.props.hint.length + 2 : 0) - 2)
+
     return (
       <Box flexDirection="row">
-        <Text dimColor>{e.props.hint}  </Text>
-        {list.map(([name, enabled]) => (
-          <Button key={name} plain dimColor={!enabled} label={`${enabled ? '●' : '○'} ${name} `} onPress={press(name, enabled)} />
-        ))}
+        {isHintShown && <Text dimColor>{e.props.hint}  </Text>}
+        {shown && <Text color={COLOR}>{shown}  </Text>}
+        {buttons}
       </Box>
     )
   })
